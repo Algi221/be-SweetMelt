@@ -6,8 +6,6 @@ import products from "./src/routes/products";
 import categories from "./src/routes/categories";
 import orders from "./src/routes/orders";
 import payment from "./src/routes/payment";
-import otp from "./src/routes/otp";
-
 const app = new Hono();
 
 // Middleware
@@ -29,7 +27,6 @@ app.route("/api/products", products);
 app.route("/api/categories", categories);
 app.route("/api/orders", orders);
 app.route("/api/payment", payment);
-app.route("/api/otp", otp);
 
 // 404 handler
 app.notFound((c) => c.json({ error: "Route not found" }, 404));
