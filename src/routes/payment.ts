@@ -12,7 +12,7 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.MIDTRANS_CLIENT_KEY || "",
 });
 
-// POST /api/payment/create
+// POST /api/payment/create - Midtrans Flow
 payment.post("/create", async (c) => {
   try {
     const { order_id } = await c.req.json();
@@ -55,9 +55,8 @@ payment.post("/create", async (c) => {
         email: order.customer_email || "customer@sweetmelt.test",
         phone: order.customer_phone,
       },
-      // Store the real UUID in a custom field for the notification handler
-      custom_field1: order.id,
-      // Optional: Redirect URLs
+      custom_field1: order.id, // Store the UUID for callback
+      // Redirect URLs after payment
       callbacks: {
         finish: `${process.env.MIDTRANS_FRONTEND_URL}/order/${order.id}`,
         error: `${process.env.MIDTRANS_FRONTEND_URL}/order/${order.id}?status=error`,
@@ -66,23 +65,15 @@ payment.post("/create", async (c) => {
     };
 
     console.log("[Midtrans] Creating Snap Transaction:", orderId);
-    
-    // Create Snap Transaction
     const transaction = await snap.createTransaction(parameter);
 
-    // Save Midtrans reference/URL to order (we reuse the existings columns for simplicity or add new ones if needed)
-    // Here we use duitku_payment_url and duitku_reference just as placeholders to avoid DB schema changes
-    const { error: updateError } = await supabase
+    await supabase
       .from("orders")
       .update({
-        duitku_payment_url: transaction.redirect_url, // Reuse existing column for now
-        duitku_reference: transaction.token,        // Reuse existing column for now
+        duitku_payment_url: transaction.redirect_url, 
+        payment_method: "gateway"
       })
       .eq("id", order.id);
-
-    if (updateError) {
-      console.error("[Midtrans] Failed to update order with payment info:", updateError);
-    }
 
     return c.json({
       success: true,
@@ -167,6 +158,20 @@ payment.get("/status/:orderId", async (c) => {
   }
 
   return c.json({ data: order });
+});
+
+// POST /api/payment/simulate-success (For Testing)
+payment.post("/simulate-success", async (c) => {
+  const { order_id } = await c.req.json();
+  if (!order_id) return c.json({ error: "order_id missing" }, 400);
+
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "paid" })
+    .eq("id", order_id);
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ success: true, message: "Order marked as paid (Simulated)" });
 });
 
 export default payment;
